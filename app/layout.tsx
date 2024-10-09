@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import Navbar from "@/context/wallet-provider";
 import WalletContextProvider from "@/context/wallet-provider";
 
 const geistSans = localFont({
