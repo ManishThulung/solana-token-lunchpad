@@ -3,7 +3,7 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import React from "react";
 
-const page = () => {
+const MintToken = () => {
   const  wallet  = useWallet();
   const {connection} = useConnection()
   console.log(wallet?.publicKey, "wallet");
@@ -13,4 +13,4 @@ const page = () => {
   </div>;
 };
 
-export default page;
+export default MintToken;
