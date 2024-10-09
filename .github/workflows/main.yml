@@ -1,7 +1,5 @@
 name: solana-token-lunchpad-CI/CD
 
-# Push - action will trigger if someone pushes to the main branch
-# Pull request - action will trigger if someone opens a pull request from the main branch.
 on:
   push:
     branches:
@@ -15,7 +13,6 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # actions/checkout basically performs a local git clone of the repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
