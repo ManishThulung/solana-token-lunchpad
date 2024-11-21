@@ -55,12 +55,12 @@ const MintModal: FC<IProps> = ({ setIsModalOpen, tokenAddress }) => {
                 </div>
               </div>
             </div>
-            <div className="bg-black px-4 py-3 sm:flex gap-4 sm:px-6">
+            <div className="bg-black px-4 py-3 sm:flex gap-4 sm:px-6 justify-center">
               <Link
                 className={`bg-blue-600 hover:bg-blue-500 rounded flex justify-center items-center px-5 ${
                   !tokenAddress && "cursor-not-allowed"
                 }`}
-                href={`/mint-token/${tokenAddress}`}
+                href={`/mint-token/${JSON.parse(tokenAddress)}`}
               >
                 <span className="font-semibold">Mint Token</span>
               </Link>

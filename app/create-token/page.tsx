@@ -164,7 +164,7 @@ const CreateToken = () => {
         ).blockhash;
         transaction.partialSign(mintKeypair);
         await wallet.sendTransaction(transaction, connection);
-        setTokenAddress(mintKeypair.publicKey);
+        setTokenAddress(JSON.stringify(mintKeypair.publicKey));
         setLoading(false);
         setIsModalOpen(true);
       } catch (error) {
@@ -284,7 +284,7 @@ const CreateToken = () => {
             className="bg-green-500 text-white"
             disabled={!wallet?.publicKey ? true : false}
           >
-            Submit{" "}
+            Create Token{" "}
             {loading && (
               <div className="ml-2">
                 <Spinner />
