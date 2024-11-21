@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import Spinner from "@/components/loader/Spinner";
+import MintModal from "@/components/modal/mint-modal";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -16,32 +18,22 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  createInitializeMetadataPointerInstruction,
+  createInitializeMintInstruction,
+  ExtensionType,
+  getMintLen,
+  LENGTH_SIZE,
+  TOKEN_2022_PROGRAM_ID,
+  TYPE_SIZE
+} from "@solana/spl-token";
+import { createInitializeInstruction, pack } from "@solana/spl-token-metadata";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   Keypair,
-  PublicKey,
   SystemProgram,
-  Transaction,
+  Transaction
 } from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createMintToInstruction,
-  createAssociatedTokenAccountInstruction,
-  getMintLen,
-  createInitializeMetadataPointerInstruction,
-  createInitializeMintInstruction,
-  TYPE_SIZE,
-  LENGTH_SIZE,
-  ExtensionType,
-  mintTo,
-  getOrCreateAssociatedTokenAccount,
-  getAssociatedTokenAddressSync,
-  createMint,
-} from "@solana/spl-token";
-import { createInitializeInstruction, pack } from "@solana/spl-token-metadata";
-import Spinner from "@/components/loader/Spinner";
-import MintModal from "@/components/modal/mint-modal";
 
 const formSchema = z.object({
   name: z.string().min(2, {
