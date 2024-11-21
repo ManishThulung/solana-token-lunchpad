@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -17,7 +17,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { Keypair, SystemProgram, Transaction } from "@solana/web3.js";
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 import {
   MINT_SIZE,
   TOKEN_2022_PROGRAM_ID,
@@ -35,6 +40,8 @@ import {
   createMint,
 } from "@solana/spl-token";
 import { createInitializeInstruction, pack } from "@solana/spl-token-metadata";
+import Spinner from "@/components/loader/Spinner";
+import MintModal from "@/components/modal/mint-modal";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -43,41 +50,72 @@ const formSchema = z.object({
   symbol: z.string().min(2, {
     message: "Sumbol must be at least 2 characters.",
   }),
-  supply: z.number().min(2, {
-    message: "Supply must be at least 1 characters.",
-  }),
-  decimals: z.number().min(2, {
-    message: "Decimals must be at least 1 characters.",
-  }),
+  supply: z
+    .string()
+    .transform((val) => parseInt(val, 10)) // Convert string to number
+    .pipe(
+      z
+        .number()
+        .int()
+        .nonnegative()
+        .refine((val) => val > 0, {
+          message: "Supply must be greater than 0.",
+        })
+    ),
+  decimals: z
+    .string()
+    .length(1, {
+      message: "Decimals must be a single digit.",
+    })
+    .transform((val) => parseInt(val, 10))
+    .pipe(
+      z
+        .number()
+        .int()
+        .nonnegative()
+        .refine((val) => val > 0, {
+          message: "Cannot set to 0.",
+        })
+    ),
   description: z.string().min(2, {
     message: "Description must be at least 3 characters.",
   }),
   image: z.string().optional(),
 });
 
-const MintToken = () => {
+type CustomFormSchema = Omit<
+  z.infer<typeof formSchema>,
+  "supply" | "decimals"
+> & {
+  supply: string;
+  decimals: string;
+};
+
+const CreateToken = () => {
   const wallet = useWallet();
   const { connection } = useConnection();
-  console.log(wallet?.publicKey, "wallet");
-  console.log(connection, "connection");
+  const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tokenAddress, setTokenAddress] = useState<any>();
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<CustomFormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       symbol: "",
-      supply: 1000,
-      decimals: 9,
+      supply: "100",
+      decimals: "9",
       description: "",
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: CustomFormSchema) {
+    setLoading(true);
     const mintKeypair = new Keypair();
     const metadata = {
       mint: mintKeypair.publicKey,
-      name: "DODGE",
-      symbol: "DOD    ",
+      name: values?.name,
+      symbol: values?.symbol,
       uri: "https://cdn.100xdevs.com/metadata.json",
       additionalMetadata: [],
     };
@@ -96,16 +134,51 @@ const MintToken = () => {
           lamports,
           space: mintLen,
           programId: TOKEN_2022_PROGRAM_ID,
+        }),
+
+        // initialize metadata pointer
+        createInitializeMetadataPointerInstruction(
+          mintKeypair.publicKey,
+          wallet.publicKey,
+          mintKeypair.publicKey,
+          TOKEN_2022_PROGRAM_ID
+        ),
+
+        // actaully created mint account
+        createInitializeMintInstruction(
+          mintKeypair.publicKey,
+          Number(values?.decimals),
+          wallet.publicKey,
+          wallet.publicKey,
+          TOKEN_2022_PROGRAM_ID
+        ),
+
+        // actual metadata is added to the minted token
+        createInitializeInstruction({
+          programId: TOKEN_2022_PROGRAM_ID,
+          mint: mintKeypair.publicKey,
+          metadata: mintKeypair.publicKey,
+          name: metadata.name,
+          symbol: metadata.symbol,
+          uri: metadata.uri,
+          mintAuthority: wallet.publicKey,
+          updateAuthority: wallet.publicKey,
         })
       );
-
-      transaction.feePayer = wallet.publicKey;
-      transaction.recentBlockhash = (
-        await connection.getLatestBlockhash()
-      ).blockhash;
-      transaction.partialSign(mintKeypair);
-      const res = await wallet.sendTransaction(transaction, connection);
-      console.log(res, "res");
+      try {
+        transaction.feePayer = wallet.publicKey;
+        transaction.recentBlockhash = (
+          await connection.getLatestBlockhash()
+        ).blockhash;
+        transaction.partialSign(mintKeypair);
+        await wallet.sendTransaction(transaction, connection);
+        setTokenAddress(mintKeypair.publicKey);
+        setLoading(false);
+        setIsModalOpen(true);
+      } catch (error) {
+        console.log(error, "mint account error");
+        setLoading(false);
+      }
     }
   }
   return (
@@ -136,9 +209,12 @@ const MintToken = () => {
                 <FormItem>
                   <FormLabel>Symbol</FormLabel>
                   <FormControl>
-                    <Input placeholder="Put the symbol of your Token." {...field} />
+                    <Input
+                      placeholder="Put the symbol of your Token."
+                      {...field}
+                    />
                   </FormControl>
-                  
+
                   <FormMessage />
                 </FormItem>
               )}
@@ -152,9 +228,11 @@ const MintToken = () => {
                 <FormItem>
                   <FormLabel>Decimals</FormLabel>
                   <FormControl>
-                    <Input placeholder="9" {...field} />
+                    <Input type="number" placeholder="9" {...field} />
                   </FormControl>
-                  <FormDescription>Number of decimals in your token</FormDescription>
+                  <FormDescription>
+                    Number of decimals in your token
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -166,7 +244,7 @@ const MintToken = () => {
                 <FormItem>
                   <FormLabel>Supply</FormLabel>
                   <FormControl>
-                    <Input placeholder="1000" {...field} />
+                    <Input type="number" placeholder="1000" {...field} />
                   </FormControl>
                   <FormDescription>Max supply of your token</FormDescription>
                   <FormMessage />
@@ -198,19 +276,41 @@ const MintToken = () => {
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Input placeholder="Put the description of your Token." {...field} />
+                    <Input
+                      placeholder="Put the description of your Token."
+                      {...field}
+                    />
                   </FormControl>
-                  
+
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
-          <Button type="submit">Submit</Button>
+          <Button
+            type="submit"
+            className="bg-green-500 text-white"
+            disabled={!wallet?.publicKey ? true : false}
+          >
+            Submit{" "}
+            {loading && (
+              <div className="ml-2">
+                <Spinner />
+              </div>
+            )}
+          </Button>
         </form>
       </Form>
+      <>
+        {isModalOpen && (
+          <MintModal
+            setIsModalOpen={setIsModalOpen}
+            tokenAddress={tokenAddress}
+          />
+        )}
+      </>
     </div>
   );
 };
 
-export default MintToken;
+export default CreateToken;
